@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 mongoose.Promise = require('bluebird');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var articleRouter = require('./routes/articles');
+
 var passport = require('passport');
 var authenticate = require('./authenticate');
 var app = express();
@@ -36,6 +38,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/articles', articleRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
