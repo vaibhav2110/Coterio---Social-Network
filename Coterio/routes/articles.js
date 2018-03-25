@@ -5,7 +5,26 @@ var authenticate = require('../authenticate');
 
 const Article = require('../models/article');
 
+const multer = require('multer');
 const articleRouter = express.Router();
+
+const storage = multer.diskStorage({
+    destination: (req,file,cb)=> {
+        cb(null, 'public/images');
+    },
+    filename: (req, file, cb)=>{
+        cb(null, file.originalname)
+    }
+});
+
+const imageFileFilter = (req, file, cb)=>{
+    if(!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+        return cb(new Error('You can upload only image files!'), false);
+    }
+    cb(null, true);
+};
+
+const upload = multer({ storage: storage, fileFilter: imageFileFilter});
 
 articleRouter.use(bodyParser.json());
 
@@ -30,6 +49,12 @@ articleRouter.route('/')
         res.json(article);
     }, (err)=> next(err))
     .catch((err)=> next(err));
+});
+articleRouter.route('/img')
+.post(authenticate.verifyUser,upload.single('avatar'), (req,res,next) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.json(req.file);
 });
 
 articleRouter.route('/:articleId')
@@ -64,6 +89,80 @@ articleRouter.route('/:articleId')
         }
     }, (err)=> next(err))
     .catch((err)=> next(err));
+});
+articleRouter.route('/:articleId/favorite')
+.get(authenticate.verifyUser, (req,res,next)=>{
+    if(req.user.isFavorite(req.params.articleId)){
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: true});
+    }
+    else{
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: false});
+    }
+})
+.post(authenticate.verifyUser, (req,res,next)=>{
+    if(req.user.isFavorite(req.params.articleId)){
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: 'Already favorited'});
+    }
+    else{
+        req.user.favorite(req.params.articleId)
+        .then((user)=>{
+            Article.findById(req.params.articleId).
+            then((article)=>{
+                article.updateFavoriteCount()
+                .then((article)=>{
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(article);
+                },(err)=> next(err))
+                .catch((err)=> next(err));
+            },(err)=> next(err))
+            .catch((err)=> next(err));
+        },(err)=> next(err))
+        .catch((err)=> next(err));
+        }
+    });
+articleRouter.route('/:articleId/unfavorite')
+.get(authenticate.verifyUser, (req,res,next)=>{
+    if(req.user.isFavorite(req.params.articleId)){
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: true});
+    }
+    else{
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: false});
+    }
+})
+.post(authenticate.verifyUser, (req,res,next)=>{
+    if(!req.user.isFavorite(req.params.articleId)){
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: 'Already unfavorited'});
+    }
+    else{
+        req.user.unfavorite(req.params.articleId)
+        .then((user)=>{
+            Article.findById(req.params.articleId).
+            then((article)=>{
+                article.updateFavoriteCount()
+                .then((article)=>{
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(article);
+                },(err)=> next(err))
+                .catch((err)=> next(err));
+            },(err)=> next(err))
+            .catch((err)=> next(err));
+        },(err)=> next(err))
+        .catch((err)=> next(err));
+        }
 });
 
 articleRouter.route('/:articleId/comments')
