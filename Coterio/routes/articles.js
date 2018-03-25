@@ -50,6 +50,35 @@ articleRouter.route('/')
     }, (err)=> next(err))
     .catch((err)=> next(err));
 });
+articleRouter.route('/home')
+.get(authenticate.verifyUser, (req,res,next) => {
+    if(req.user.following.length > 0 ){
+        Article.find({$or: [{'author' : { $in: [req.user.following] }}, {'author': req.user._id}]
+        })
+        .populate('comments.author')
+        .populate('author')
+        .then((articles)=>{
+            console.log(articles);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(articles);
+        }, (err)=> next(err))
+        .catch((err)=> next(err));
+        }
+    else{
+        Article.find({'author': req.user._id})
+        .populate('comments.author')
+        .populate('author')
+        .then((articles)=>{
+            console.log(articles);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(articles);
+        }, (err)=> next(err))
+        .catch((err)=> next(err));
+        }
+    
+});
 articleRouter.route('/img')
 .post(authenticate.verifyUser,upload.single('avatar'), (req,res,next) => {
     res.statusCode = 200;
