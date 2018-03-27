@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+var mongoosePaginate = require('mongoose-paginate');
 var User = require('./user');
 
 const commentSchema = new Schema({
@@ -46,5 +47,6 @@ articleSchema.methods.updateFavoriteCount = function() {
     return article.save();
   });
 };
+articleSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Article', articleSchema);

@@ -30,9 +30,15 @@ articleRouter.use(bodyParser.json());
 
 articleRouter.route('/')
 .get((req,res,next) => {
-    Article.find({})
-    .populate('comments.author')
-    .populate('author')
+    let query = {};
+    let options = {
+        sort: { date: -1 },
+        populate: [ 'author', 'comments.author' ],
+        lean: true,
+        page: 2,
+        limit: 2
+    };
+    Article.paginate(query, options)
     .then((articles)=>{
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -53,10 +59,15 @@ articleRouter.route('/')
 articleRouter.route('/home')
 .get(authenticate.verifyUser, (req,res,next) => {
     if(req.user.following.length > 0 ){
-        Article.find({$or: [{'author' : { $in: [req.user.following] }}, {'author': req.user._id}]
-        })
-        .populate('comments.author')
-        .populate('author')
+        let query = {$or: [{'author' : { $in: [req.user.following] }}, {'author': req.user._id}]};
+        let options = {
+            sort: { date: -1 },
+            populate: [ 'author', 'comments.author' ],
+            lean: true,
+            page: 1,
+            limit: 2
+        };
+        Article.paginate(query, options)
         .then((articles)=>{
             console.log(articles);
             res.statusCode = 200;
