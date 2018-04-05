@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 var authenticate = require('../authenticate');
-
+const cors = require('./cors');
 const Article = require('../models/article');
 
 const multer = require('multer');
@@ -25,18 +25,18 @@ const imageFileFilter = (req, file, cb)=>{
 };
 
 const upload = multer({ storage: storage, fileFilter: imageFileFilter});
-
 articleRouter.use(bodyParser.json());
 
 articleRouter.route('/')
-.get((req,res,next) => {
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, (req,res,next) => {
     let query = {};
     let options = {
         sort: { date: -1 },
-        populate: [ 'author', 'comments.author' ],
+        populate: [ 'author'],
         lean: true,
-        page: 2,
-        limit: 2
+        page: 1,
+        limit: 10
     };
     Article.paginate(query, options)
     .then((articles)=>{
@@ -46,7 +46,7 @@ articleRouter.route('/')
     }, (err)=> next(err))
     .catch((err)=> next(err));
 })
-.post(authenticate.verifyUser, (req,res,next) => {
+.post(cors.corsWithOptions, authenticate.verifyUser, (req,res,next) => {
     req.body.author = req.user._id;
     Article.create(req.body)
     .then((article)=>{
@@ -57,15 +57,16 @@ articleRouter.route('/')
     .catch((err)=> next(err));
 });
 articleRouter.route('/home')
-.get(authenticate.verifyUser, (req,res,next) => {
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, authenticate.verifyUser, (req,res,next) => {
     if(req.user.following.length > 0 ){
         let query = {$or: [{'author' : { $in: [req.user.following] }}, {'author': req.user._id}]};
         let options = {
             sort: { date: -1 },
-            populate: [ 'author', 'comments.author' ],
+            populate: [ 'author'],
             lean: true,
             page: 1,
-            limit: 2
+            limit: 10
         };
         Article.paginate(query, options)
         .then((articles)=>{
@@ -78,7 +79,6 @@ articleRouter.route('/home')
         }
     else{
         Article.find({'author': req.user._id})
-        .populate('comments.author')
         .populate('author')
         .then((articles)=>{
             console.log(articles);
@@ -91,14 +91,16 @@ articleRouter.route('/home')
     
 });
 articleRouter.route('/img')
-.post(authenticate.verifyUser,upload.single('avatar'), (req,res,next) => {
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.post(cors.corsWithOptions, authenticate.verifyUser,upload.single('avatar'), (req,res,next) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.json(req.file);
 });
 
 articleRouter.route('/:articleId')
-.get((req,res,next)=>{
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, (req,res,next)=>{
     Article.findById(req.params.articleId)
     .populate('author')
     .then((article)=>{
@@ -108,7 +110,7 @@ articleRouter.route('/:articleId')
     },(err)=> next(err))
     .catch((err)=>next(err));
 })
-.delete(authenticate.verifyUser, (req,res,next)=>{
+.delete(cors.corsWithOptions, authenticate.verifyUser, (req,res,next)=>{
     Article.findById(req.params.articleId)
     .then((article) => {
         if( article != null ){
@@ -131,7 +133,8 @@ articleRouter.route('/:articleId')
     .catch((err)=> next(err));
 });
 articleRouter.route('/:articleId/favorite')
-.get(authenticate.verifyUser, (req,res,next)=>{
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, authenticate.verifyUser, (req,res,next)=>{
     if(req.user.isFavorite(req.params.articleId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -143,7 +146,7 @@ articleRouter.route('/:articleId/favorite')
         res.json({success: false});
     }
 })
-.post(authenticate.verifyUser, (req,res,next)=>{
+.post(cors.corsWithOptions, authenticate.verifyUser, (req,res,next)=>{
     if(req.user.isFavorite(req.params.articleId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -158,7 +161,7 @@ articleRouter.route('/:articleId/favorite')
                 .then((article)=>{
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json');
-                    res.json(article);
+                    res.json(req.user.favorites);
                 },(err)=> next(err))
                 .catch((err)=> next(err));
             },(err)=> next(err))
@@ -168,7 +171,8 @@ articleRouter.route('/:articleId/favorite')
         }
     });
 articleRouter.route('/:articleId/unfavorite')
-.get(authenticate.verifyUser, (req,res,next)=>{
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, authenticate.verifyUser, (req,res,next)=>{
     if(req.user.isFavorite(req.params.articleId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -180,7 +184,7 @@ articleRouter.route('/:articleId/unfavorite')
         res.json({success: false});
     }
 })
-.post(authenticate.verifyUser, (req,res,next)=>{
+.post(cors.corsWithOptions, authenticate.verifyUser, (req,res,next)=>{
     if(!req.user.isFavorite(req.params.articleId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -195,7 +199,7 @@ articleRouter.route('/:articleId/unfavorite')
                 .then((article)=>{
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json');
-                    res.json(article);
+                    res.json(req.user.favorites);
                 },(err)=> next(err))
                 .catch((err)=> next(err));
             },(err)=> next(err))
@@ -206,7 +210,8 @@ articleRouter.route('/:articleId/unfavorite')
 });
 
 articleRouter.route('/:articleId/comments')
-.get((req,res,next)=>{
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, (req,res,next)=>{
     Article.findById(req.params.articleId)
     .populate('comments.author')
     .then((article)=>{
@@ -223,11 +228,12 @@ articleRouter.route('/:articleId/comments')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post(authenticate.verifyUser, (req,res,next)=>{
+.post(cors.corsWithOptions, authenticate.verifyUser, (req,res,next)=>{
     Article.findById(req.params.articleId)
     .then((article)=>{
         if(article != null){
-            req.body.author = req.user._id;
+            console.log(req.user.username);
+            req.body.author = req.user.username;
             article.comments = article.comments.concat([req.body]);
             article.save()
             .then((article)=>{
@@ -246,7 +252,8 @@ articleRouter.route('/:articleId/comments')
 })
 
 articleRouter.route('/:articleId/comments/:commentId')
-.get((req,res,next)=>{
+.options(cors.corsWithOptions, (req, res) => { res.sendStatus(200); })
+.get(cors.cors, (req,res,next)=>{
     Article.findById(req.params.articleId)
     .populate('comments.author')
     .populate('author')
@@ -271,7 +278,7 @@ articleRouter.route('/:articleId/comments/:commentId')
         }, (err) => next(err))
         .catch((err) => next(err)); 
 })
-.delete(authenticate.verifyUser, (req, res, next) => {
+.delete(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
     Article.findById(req.params.articleId)
     .then((article) => {
         if (article != null && article.comments.id(req.params.commentId) != null) {

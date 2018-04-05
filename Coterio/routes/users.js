@@ -2,14 +2,15 @@ var express = require('express');
 var router = express.Router();
 const bodyParser = require('body-parser');
 var User = require('../models/user');
-
+const cors = require('./cors');
 var passport = require('passport');
 var authenticate = require('../authenticate');
 router.use(bodyParser.json());
 
-/* GET users listing. */
 
-router.post('/signup', (req, res, next) => {
+/* GET users listing. */
+router.options('*', cors.corsWithOptions, (req, res) => { res.sendStatus(200); } )
+router.post('/signup', cors.corsWithOptions,(req, res, next) => {
   User.register(new User({username: req.body.username}), 
     req.body.password, (err, user) => {
     if(err) {
@@ -32,25 +33,45 @@ router.post('/signup', (req, res, next) => {
         passport.authenticate('local')(req, res, () => {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
-          res.json({success: true, status: 'Registration Successful!'});
+          res.json({success: true,user: req.user, status: 'Registration Successful!'});
         });
       });
     }
   });
 });
 
-router.post('/login', passport.authenticate('local'), (req, res) => {
-  var token = authenticate.getToken({_id: req.user._id});
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'application/json');
-  res.json({success: true,token: token, status: 'You are successfully logged in!'});
+router.post('/login', cors.corsWithOptions, (req, res, next) => {
+
+  passport.authenticate('local', (err, user, info) => {
+    if (err)
+      return next(err);
+
+    if (!user) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.json({success: false, status: 'Login Unsuccessful!', err: info});
+    }
+    req.logIn(user, (err) => {
+      if (err) {
+        res.statusCode = 401;
+        res.setHeader('Content-Type', 'application/json');
+        res.json({success: false, status: 'Login Unsuccessful!', err: 'Could not log in user!'});          
+      }
+
+      var token = authenticate.getToken({_id: req.user._id});
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.json({success: true, status: 'Login Successful!',user: user, token: token});
+    }); 
+  }) (req, res, next);
 });
-router.get('/me', authenticate.verifyUser, (req,res,next)=>{
+
+router.get('/me', cors.cors, authenticate.verifyUser, (req,res,next)=>{
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.json(req.user);
 });
-router.get('/me/followers', authenticate.verifyUser, (req,res,next)=>{
+router.get('/me/followers',cors.cors, authenticate.verifyUser, (req,res,next)=>{
       User.findById(req.user._id)
       .populate('followers')
       .then((user)=>{
@@ -61,7 +82,7 @@ router.get('/me/followers', authenticate.verifyUser, (req,res,next)=>{
       .catch((err)=> next(err));  
       
 });
-router.get('/me/following', authenticate.verifyUser, (req,res,next)=>{
+router.get('/me/following',cors.cors, authenticate.verifyUser, (req,res,next)=>{
       User.findById(req.user._id)
       .populate('following')
       .then((user)=>{
@@ -73,7 +94,7 @@ router.get('/me/following', authenticate.verifyUser, (req,res,next)=>{
       
 });
 
-router.get('/me/favorites', authenticate.verifyUser, (req,res,next)=>{
+router.get('/me/favorites',cors.cors, authenticate.verifyUser, (req,res,next)=>{
       User.findById(req.user._id)
       .populate('favorites')
       .then((user)=>{
@@ -84,8 +105,26 @@ router.get('/me/favorites', authenticate.verifyUser, (req,res,next)=>{
       .catch((err)=> next(err));  
       
 });
+router.get('/checkJWTToken', cors.corsWithOptions, (req, res) => {
+  passport.authenticate('jwt', {session: false}, (err, user, info) => {
+    if (err)
+      return next(err);
+    
+    if (!user) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      return res.json({status: 'JWT invalid!', success: false, err: info});
+    }
+    else {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      return res.json({status: 'JWT valid!', success: true, user: user});
 
-router.get('/:userId', authenticate.verifyUser, (req,res,next)=>{
+    }
+  }) (req, res);
+});
+
+router.get('/:userId',cors.cors, authenticate.verifyUser, (req,res,next)=>{
       User.findById(req.params.userId)
       .then((user)=>{
           res.statusCode = 200;
@@ -95,7 +134,7 @@ router.get('/:userId', authenticate.verifyUser, (req,res,next)=>{
       .catch((err)=> next(err));     
 });
 
-router.post('/:userId/follow', authenticate.verifyUser, (req, res, next)=>{
+router.post('/:userId/follow',cors.corsWithOptions, authenticate.verifyUser, (req, res, next)=>{
     if(req.user.isFollowing(req.params.userId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -146,7 +185,7 @@ router.post('/:userId/follow', authenticate.verifyUser, (req, res, next)=>{
     }, (err)=> next(err))
       .catch((err)=> next(err));  */
 });
-router.post('/:userId/unfollow', authenticate.verifyUser, (req, res, next)=>{
+router.post('/:userId/unfollow',cors.corsWithOptions, authenticate.verifyUser, (req, res, next)=>{
     if(!req.user.isFollowing(req.params.userId)){
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -222,6 +261,7 @@ router.post('/:userId/unfollow', authenticate.verifyUser, (req, res, next)=>{
     }, (err)=> next(err))
       .catch((err)=> next(err));  
 });*/
+
 
 
 module.exports = router;

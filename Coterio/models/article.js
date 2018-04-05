@@ -9,12 +9,17 @@ const commentSchema = new Schema({
         required: true
     },
     author:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        type: String,
+        default: ''
     }
 }, {timestamps: true}
 );
 const articleSchema = new Schema({
+    mine: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
     body: {
         type: String,
         required: true
